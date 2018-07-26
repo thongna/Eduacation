@@ -8,6 +8,7 @@ from django.views.generic.base import TemplateResponseMixin, View
 from .forms import ModuleFormSet
 from django.forms.models import modelform_factory
 from django.apps import apps
+from braces.views import CsrfExemptMixin, JsonRequestResponseMixin
 
 # Create your views here.
 class OwnerMixin(object):
@@ -133,3 +134,29 @@ class ContentDeleteView(View):
         content.item.delete()
         content.delete()
         return redirect('module_content_list', module.id)
+
+class ModuleContentListView(TemplateResponseMixin, View):
+    template_name = 'courses/manage/module/content_list.html'
+
+    def get(self, request, module_id):
+        module = get_object_or_404(Module,
+                                   id=module_id,
+                                   course__owner=request.user)
+        return self.render_to_response({'module': module})
+
+class ModuleOrderView(CsrfExemptMixin, JsonRequestResponseMixin, View):
+    def post(self, request):
+        for id, order in self.request_json.item():
+            Module.objects.filter(id=id,
+                                  course__owner=request.user)\
+                .update(order=order)
+        return self.render_json_response({'saved': 'OK'})
+
+class ContentOrderView(CsrfExemptMixin,
+                       JsonRequestResponseMixin, View):
+    def post(self, request):
+        for id, order in self.request_json.item():
+            Content.objects.filter(id=id,
+                                   module__course_owner=request.user)\
+                .update(order=order)
+        return self.render_json_response({'saved': 'OK'})
